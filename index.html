@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo Parkour 3D</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #050508;
+            color: white;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        /* MENU INICIAL PADRÃO */
+        #main-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #050508 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        #main-menu h1 {
+            font-size: 3.5rem;
+            color: #00f0ff;
+            text-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+            margin: 0 0 10px 0;
+            letter-spacing: 2px;
+        }
+
+        #main-menu p {
+            color: #aaa;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            width: 340px;
+        }
+
+        .menu-btn {
+            padding: 15px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid #00f0ff;
+            border-radius: 10px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .menu-btn:hover:not(.locked) {
+            background: #00f0ff;
+            color: #000;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .menu-btn.locked {
+            border-color: #444;
+            background: rgba(255, 255, 255, 0.02);
+            color: #666;
+            cursor: not-allowed;
+        }
+
+        /* HUD EM JOGO */
+        #hud {
+            display: none;
+        }
+
+        .hud-panel {
+            position: absolute;
+            padding: 12px 18px;
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid #00f0ff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+            pointer-events: none;
+        }
+
+        #stage-info { top: 20px; left: 20px; }
+        #controls-info { bottom: 20px; left: 20px; font-size: 0.9rem; }
+
+        #btn-back-menu {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 18px;
+            background: rgba(255, 0, 85, 0.2);
+            border: 1px solid #ff0055;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 50;
+        }
+
+        #btn-back-menu:hover {
+            background: #ff0055;
+            box-shadow: 0 0 10px rgba(255, 0, 85, 0.5);
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            background: rgba(255, 0, 85, 0.2);
+            border: 2px solid #ff0055;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            z-index: 200;
+        }
+
+        #crosshair {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        #crosshair::before, #crosshair::after {
+            content: ''; position: absolute; background: #00f0ff; box-shadow: 0 0 5px #00f0ff;
+        }
+        #crosshair::before { top: 4px; left: -5px; width: 20px; height: 2px; }
+        #crosshair::after { top: -5px; left: 4px; width: 2px; height: 20px; }
+
+        #msg-banner {
+            display: none;
+            position: absolute;
+            top: 35%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 25px 40px;
+            background: rgba(0, 255, 136, 0.25);
+            border: 3px solid #00ff88;
+            border-radius: 16px;
+            font-size: 1.8rem;
+            color: #00ff88;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+            z-index: 250;
+            pointer-events: none;
+        }
+
+        #fly-indicator {
+            display: none;
+            color: #00ff88;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        h2 { margin: 0 0 5px 0; color: #00f0ff; }
+        p { margin: 0; color: #ccc; }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="loading">A carregar o jogo...</div>
+
+    <!-- MENU INICIAL -->
+    <div id="main-menu">
+        <h1>PARKOUR 3D</h1>
+        <p>Selecione um estágio para jogar</p>
+        <div class="menu-grid">
+            <button class="menu-btn" data-stage="1">
+                <span>1º Estágio</span> <span>✓</span>
+            </button>
+            <button class="menu-btn locked" id="menu-btn-2" data-stage="2">
+                <span>2º Estágio</span> <span class="lock-icon">🔒</span>
+            </button>
+            <button class="menu-btn locked" id="menu-btn-3" data-stage="3">
+                <span>3º Estágio</span> <span class="lock-icon">🔒</span>
+            </button>
+            <button class="menu-btn locked" id="menu-btn-4" data-stage="4">
+                <span>4º Estágio</span> <span class="lock-icon">🔒</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- HUD EM JOGO -->
+    <div id="hud">
+        <div id="crosshair"></div>
+
+        <div id="stage-info" class="hud-panel">
+            <h2 id="stage-title">1º ESTÁGIO</h2>
+            <p id="stage-desc">Saltos Precisos em Sequência</p>
+            <div id="fly-indicator">🚀 MODO VOO ATIVO</div>
+        </div>
+
+        <button id="btn-back-menu">Menu Principal</button>
+
+        <div id="controls-info" class="hud-panel">
+            <p><strong>Controlo:</strong> WASD = Mover | Espaço = Saltar | Scroll = Zoom</p>
+            <p id="admin-controls-hint" style="display:none; color:#00ff88;"><strong>Admin:</strong> Duplo Espaço = Voo | Espaço/Ctrl = Subir/Descer</p>
+            <p><strong>Shift Lock:</strong> Pressiona <span style="color:#00f0ff;">Shift</span> | Modo: <span id="shift-status" style="color:#ff0055; font-weight:bold;">OFF</span></p>
+        </div>
+    </div>
+
+    <div id="msg-banner">
+        <span id="msg-text">ESTÁGIO CONCLUÍDO!</span>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // 1. CENA, CÂMERA E RENDERER
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a14);
+        scene.fog = new THREE.FogExp2(0x0a0a14, 0.008);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 3, 4.5);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.maxPolarAngle = Math.PI / 2 - 0.05;
+        controls.minDistance = 2.0;
+        controls.maxDistance = 12.0;
+
+        let cameraDistance = 4.5;
+
+        window.addEventListener('wheel', (e) => {
+            if (isShiftLockActive && gameActive) {
+                cameraDistance += e.deltaY * 0.005;
+                cameraDistance = Math.max(2.0, Math.min(12.0, cameraDistance));
+            }
+        });
+
+        // 2. ILUMINAÇÃO
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(30, 50, 30);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // 3. ESTRUTURA DOS ESTÁGIOS
+        const platforms = [];
+        const movingPlatforms = [];
+        const disappearingPlatforms = [];
+        const lasers = [];
+
+        let currentStage = 1;
+        let unlockedStages = [1];
+        let gameActive = false;
+        let isAdmin = false;
+        let isFlying = false;
+
+        function createPlatform(x, y, z, width, depth, color = 0x222238, isGoal = false, stage = 1) {
+            const geo = new THREE.BoxGeometry(width, 1, depth);
+            const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.4, metalness: 0.2 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, y - 0.5, z);
+            mesh.receiveShadow = true;
+            mesh.castShadow = true;
+            scene.add(mesh);
+
+            const box = new THREE.Box3();
+            const platformData = { mesh, box, topY: y, width, depth, isGoal, stage };
+            platforms.push(platformData);
+            return platformData;
+        }
+
+        // --- 1º ESTÁGIO ---
+        const s1Start = new THREE.Vector3(100, 0, 0);
+        createPlatform(100, 0, 0, 8, 8, 0x00f0ff, false, 1);
+        createPlatform(100, 1, -11, 3.5, 3.5, 0x222238, false, 1);
+        createPlatform(105, 2.2, -19, 3.5, 3.5, 0x222238, false, 1);
+        createPlatform(100, 3.5, -27, 3.5, 3.5, 0x222238, false, 1);
+        createPlatform(94, 4.8, -35, 3.5, 3.5, 0x222238, false, 1);
+        createPlatform(100, 6, -43, 3.5, 3.5, 0x222238, false, 1);
+        createPlatform(106, 7.2, -51, 3.5, 3.5, 0x222238, false, 1);
+        createPlatform(100, 8.5, -60, 8, 8, 0x00ff88, true, 1);
+
+        // --- 2º ESTÁGIO ---
+        const s2Start = new THREE.Vector3(200, 0, 0);
+        createPlatform(200, 0, 0, 8, 8, 0xffaa00, false, 2);
+
+        let pM1 = createPlatform(200, 1, -10, 3.5, 3.5, 0xff00bb, false, 2);
+        movingPlatforms.push({ p: pM1, axis: 'x', min: 194, max: 206, speed: 4.5, dir: 1, deltaMove: new THREE.Vector3() });
+
+        let pM2 = createPlatform(200, 2.5, -19, 3.5, 3.5, 0xff00bb, false, 2);
+        movingPlatforms.push({ p: pM2, axis: 'x', min: 193, max: 207, speed: 5.5, dir: -1, deltaMove: new THREE.Vector3() });
+
+        let pM3 = createPlatform(200, 4, -28, 3.5, 3.5, 0xff00bb, false, 2);
+        movingPlatforms.push({ p: pM3, axis: 'z', centerZ: -28, min: -32, max: -24, speed: 4.5, dir: 1, deltaMove: new THREE.Vector3() });
+
+        let pM4 = createPlatform(200, 5.5, -37, 3.5, 3.5, 0xff00bb, false, 2);
+        movingPlatforms.push({ p: pM4, axis: 'x', min: 194, max: 206, speed: 6, dir: 1, deltaMove: new THREE.Vector3() });
+
+        let pM5 = createPlatform(200, 7, -46, 3.5, 3.5, 0xff00bb, false, 2);
+        movingPlatforms.push({ p: pM5, axis: 'z', centerZ: -46, min: -50, max: -42, speed: 5, dir: -1, deltaMove: new THREE.Vector3() });
+
+        createPlatform(200, 8.5, -56, 8, 8, 0x00ff88, true, 2);
+
+        // --- 3º ESTÁGIO ---
+        const s3Start = new THREE.Vector3(300, 0, 0);
+        createPlatform(300, 0, 0, 8, 8, 0xaa00ff, false, 3);
+
+        function createDisappearingPlatform(x, y, z) {
+            let p = createPlatform(x, y, z, 3.5, 3.5, 0xaa00ff, false, 3);
+            disappearingPlatforms.push({ p, stepped: false, timer: 0, active: true, respawnTimer: 0 });
+        }
+
+        createDisappearingPlatform(300, 1, -10);
+        createDisappearingPlatform(305, 2.2, -18);
+        createDisappearingPlatform(300, 3.4, -26);
+        createDisappearingPlatform(295, 4.6, -34);
+        createDisappearingPlatform(300, 5.8, -42);
+        createDisappearingPlatform(305, 7, -50);
+        createDisappearingPlatform(300, 8.2, -58);
+        createPlatform(300, 9.5, -68, 8, 8, 0x00ff88, true, 3);
+
+        // --- 4º ESTÁGIO (HARDCORE) ---
+        const s4Start = new THREE.Vector3(400, 0, 0);
+        createPlatform(400, 0, 0, 8, 8, 0xff0055, false, 4);
+
+        createPlatform(400, 1, -12, 2.4, 9, 0x222238, false, 4);
+        createPlatform(400, 2.8, -25, 2.4, 9, 0x222238, false, 4);
+        createPlatform(400, 4.6, -38, 2.4, 9, 0x222238, false, 4);
+        createPlatform(400, 6.4, -51, 2.4, 9, 0x222238, false, 4);
+        createPlatform(400, 8.2, -64, 2.4, 9, 0x222238, false, 4);
+
+        function createLaser(x, y, z, moveRangeX, speed = 6.0) {
+            const geo = new THREE.CylinderGeometry(0.12, 0.12, 10);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.rotation.z = Math.PI / 2;
+            mesh.position.set(x, y + 0.8, z);
+            scene.add(mesh);
+
+            lasers.push({ mesh, minX: x - moveRangeX, maxX: x + moveRangeX, speed, dir: 1, y: y + 0.8, z });
+        }
+
+        // 3-2-3-2-3 Lasers Alternados
+        createLaser(400, 1, -15, 5, 5.5);
+        createLaser(400, 1, -12, 5, 6.5);
+        createLaser(400, 1, -9, 5, 5.0);
+
+        createLaser(400, 2.8, -27, 5, 6.0);
+        createLaser(400, 2.8, -23, 5, 7.0);
+
+        createLaser(400, 4.6, -41, 5, 7.5);
+        createLaser(400, 4.6, -38, 5, 8.0);
+        createLaser(400, 4.6, -35, 5, 6.5);
+
+        createLaser(400, 6.4, -53, 5, 6.8);
+        createLaser(400, 6.4, -49, 5, 7.5);
+
+        createLaser(400, 8.2, -67, 5, 8.2);
+        createLaser(400, 8.2, -64, 5, 7.0);
+        createLaser(400, 8.2, -61, 5, 8.5);
+
+        createPlatform(400, 10.0, -78, 8, 8, 0x00ff88, true, 4);
+
+        // 4. CÓDIGO ADMIN (batmangg)
+        let typedSecretBuffer = "";
+        const secretCode = "batmangg";
+
+        window.addEventListener('keydown', (e) => {
+            if (!gameActive) {
+                if (e.key.length === 1) {
+                    typedSecretBuffer += e.key.toLowerCase();
+                    if (typedSecretBuffer.length > 20) {
+                        typedSecretBuffer = typedSecretBuffer.slice(-10);
+                    }
+
+                    if (typedSecretBuffer.includes(secretCode)) {
+                        isAdmin = true;
+                        unlockedStages = [1, 2, 3, 4];
+                        updateMenuUI();
+                        document.getElementById('admin-controls-hint').style.display = 'block';
+                        showMessage("⚡ MODO ADMIN ATIVADO!\nDuplo Pulo = Voar habilitado!", 3000);
+                        typedSecretBuffer = "";
+                    }
+                }
+            }
+        });
+
+        function updateMenuUI() {
+            for (let i = 2; i <= 4; i++) {
+                const btn = document.getElementById(`menu-btn-${i}`);
+                const icon = btn.querySelector('.lock-icon');
+                if (unlockedStages.includes(i)) {
+                    btn.classList.remove('locked');
+                    icon.innerText = "✓";
+                } else {
+                    btn.classList.add('locked');
+                    icon.innerText = "🔒";
+                }
+            }
+        }
+
+        function startStage(stageNum) {
+            if (!unlockedStages.includes(stageNum)) return;
+
+            currentStage = stageNum;
+            gameActive = true;
+
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('hud').style.display = 'block';
+
+            tpToCurrentStage();
+        }
+
+        document.querySelectorAll('.menu-btn').forEach(btn => {
+            btn.addEventListener('mouseup', (e) => {
+                const stageNum = parseInt(btn.getAttribute('data-stage'));
+                startStage(stageNum);
+            });
+        });
+
+        document.getElementById('btn-back-menu').addEventListener('mouseup', () => {
+            openMainMenu();
+        });
+
+        function openMainMenu() {
+            gameActive = false;
+            isFlying = false;
+            document.getElementById('fly-indicator').style.display = 'none';
+
+            if (isShiftLockActive) {
+                isShiftLockActive = false;
+                document.getElementById('shift-status').innerText = "OFF";
+                document.getElementById('shift-status').style.color = "#ff0055";
+                document.getElementById('crosshair').style.display = "none";
+                document.exitPointerLock();
+            }
+
+            document.getElementById('hud').style.display = 'none';
+            document.getElementById('main-menu').style.display = 'flex';
+            updateMenuUI();
+        }
+
+        function tpToCurrentStage() {
+            velocity.set(0, 0, 0);
+            isFlying = false;
+            document.getElementById('fly-indicator').style.display = 'none';
+
+            if (currentStage === 1) {
+                playerContainer.position.copy(s1Start).add(new THREE.Vector3(0, 1.5, 0));
+                document.getElementById('stage-title').innerText = "1º ESTÁGIO";
+                document.getElementById('stage-desc').innerText = "Saltos Precisos em Sequência";
+            } else if (currentStage === 2) {
+                playerContainer.position.copy(s2Start).add(new THREE.Vector3(0, 1.5, 0));
+                document.getElementById('stage-title').innerText = "2º ESTÁGIO";
+                document.getElementById('stage-desc').innerText = "Plataformas Móveis Velozes";
+            } else if (currentStage === 3) {
+                playerContainer.position.copy(s3Start).add(new THREE.Vector3(0, 1.5, 0));
+                document.getElementById('stage-title').innerText = "3º ESTÁGIO";
+                document.getElementById('stage-desc').innerText = "Plataformas Caducas (Sem Parar!)";
+            } else if (currentStage === 4) {
+                playerContainer.position.copy(s4Start).add(new THREE.Vector3(0, 1.5, 0));
+                document.getElementById('stage-title').innerText = "4º ESTÁGIO";
+                document.getElementById('stage-desc').innerText = "A Laser Run (HARDCORE)";
+            }
+        }
+
+        function showMessage(text, duration = 2500) {
+            const banner = document.getElementById('msg-banner');
+            document.getElementById('msg-text').innerText = text;
+            banner.style.display = 'block';
+            setTimeout(() => { banner.style.display = 'none'; }, duration);
+        }
+
+        // 5. CONTROLO TECLADO, SHIFT LOCK E DUPLO SALTO DE VOO
+        const keys = { KeyW: false, KeyS: false, KeyA: false, KeyD: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, Space: false, ControlLeft: false, KeyC: false };
+        let isShiftLockActive = false;
+        let lastSpacePressTime = 0;
+
+        const crosshair = document.getElementById('crosshair');
+        const shiftStatus = document.getElementById('shift-status');
+
+        function toggleShiftLock() {
+            if (!gameActive) return;
+            isShiftLockActive = !isShiftLockActive;
+            if (isShiftLockActive) {
+                shiftStatus.innerText = "ON";
+                shiftStatus.style.color = "#00ff88";
+                crosshair.style.display = "block";
+                renderer.domElement.requestPointerLock();
+            } else {
+                shiftStatus.innerText = "OFF";
+                shiftStatus.style.color = "#ff0055";
+                crosshair.style.display = "none";
+                document.exitPointerLock();
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') toggleShiftLock();
+
+            // Detetador de duplo toque no Espaço para Voar (Só se for Admin)
+            if (e.code === 'Space' && isAdmin && gameActive) {
+                const currentTime = performance.now();
+                if (currentTime - lastSpacePressTime < 350) {
+                    isFlying = !isFlying;
+                    velocity.set(0, 0, 0);
+                    document.getElementById('fly-indicator').style.display = isFlying ? 'block' : 'none';
+                }
+                lastSpacePressTime = currentTime;
+            }
+
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = false;
+        });
+
+        let cameraYaw = 0;
+        let cameraPitch = 0.2;
+
+        document.addEventListener('mousemove', (e) => {
+            if (gameActive && document.pointerLockElement === renderer.domElement) {
+                cameraYaw -= e.movementX * 0.003;
+                cameraPitch += e.movementY * 0.003;
+                cameraPitch = Math.max(-Math.PI / 4, Math.min(Math.PI / 3, cameraPitch));
+            }
+        });
+
+        // 6. JOGADOR E FÍSICA DE MOVIMENTO/VOO
+        let playerContainer = new THREE.Group();
+        scene.add(playerContainer);
+
+        let mixer = null;
+        let animations = {};
+        let activeAction = null;
+
+        const velocity = new THREE.Vector3();
+        let isGrounded = false;
+        const gravity = -26;
+        const jumpSpeed = 11;
+        const moveSpeed = 8;
+        const flySpeed = 14;
+
+        const loader = new THREE.GLTFLoader();
+        loader.load(
+            'https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb',
+            function (gltf) {
+                const model = gltf.scene;
+                model.scale.set(0.4, 0.4, 0.4);
+                model.traverse(child => { if (child.isMesh) child.castShadow = true; });
+
+                playerContainer.add(model);
+
+                mixer = new THREE.AnimationMixer(model);
+                gltf.animations.forEach(clip => { animations[clip.name] = mixer.clipAction(clip); });
+
+                if (animations['Idle']) {
+                    activeAction = animations['Idle'];
+                    activeAction.play();
+                }
+
+                document.getElementById('loading').style.display = 'none';
+                updateMenuUI();
+            }
+        );
+
+        function setAnimation(name) {
+            if (!mixer || !animations[name] || activeAction === animations[name]) return;
+            if (activeAction) activeAction.fadeOut(0.2);
+            activeAction = animations[name];
+            activeAction.reset().fadeIn(0.2).play();
+        }
+
+        // 7. REDIMENSIONAR
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 8. LOOP PRINCIPAL DO JOGO E COLISÕES
+        const clock = new THREE.Clock();
+        const playerBox = new THREE.Box3();
+        const laserBox = new THREE.Box3();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = Math.min(clock.getDelta(), 0.1);
+
+            // Animação das Plataformas Móveis
+            for (let m of movingPlatforms) {
+                m.deltaMove.set(0, 0, 0);
+
+                if (m.axis === 'x') {
+                    const step = m.speed * m.dir * delta;
+                    m.p.mesh.position.x += step;
+                    m.deltaMove.x = step;
+
+                    if (m.p.mesh.position.x > m.max) m.dir = -1;
+                    if (m.p.mesh.position.x < m.min) m.dir = 1;
+                } else if (m.axis === 'z') {
+                    const step = m.speed * m.dir * delta;
+                    m.p.mesh.position.z += step;
+                    m.deltaMove.z = step;
+
+                    if (m.p.mesh.position.z > m.max) m.dir = -1;
+                    if (m.p.mesh.position.z < m.min) m.dir = 1;
+                }
+            }
+
+            for (let d of disappearingPlatforms) {
+                if (d.stepped && d.active) {
+                    d.timer += delta;
+                    d.p.mesh.material.color.setHex(0xff0055);
+                    if (d.timer >= 1.0) {
+                        d.active = false;
+                        d.p.mesh.visible = false;
+                        d.timer = 0;
+                    }
+                } else if (!d.active) {
+                    d.respawnTimer += delta;
+                    if (d.respawnTimer >= 3.0) {
+                        d.active = true;
+                        d.stepped = false;
+                        d.p.mesh.visible = true;
+                        d.p.mesh.material.color.setHex(0xaa00ff);
+                        d.respawnTimer = 0;
+                    }
+                }
+            }
+
+            // Mover Lasers
+            for (let l of lasers) {
+                l.mesh.position.x += l.speed * l.dir * delta;
+                if (l.mesh.position.x > l.maxX) l.dir = -1;
+                if (l.mesh.position.x < l.minX) l.dir = 1;
+            }
+
+            // LÓGICA EM JOGO
+            if (gameActive) {
+                playerBox.setFromCenterAndSize(
+                    playerContainer.position.clone().add(new THREE.Vector3(0, 0.8, 0)),
+                    new THREE.Vector3(0.7, 1.6, 0.7)
+                );
+
+                // Colisão Lasers (só atua se não estiver a voar)
+                if (currentStage === 4 && !isFlying) {
+                    for (let l of lasers) {
+                        laserBox.setFromObject(l.mesh);
+                        laserBox.expandByScalar(0.2);
+
+                        if (playerBox.intersectsBox(laserBox)) {
+                            tpToCurrentStage();
+                            break;
+                        }
+                    }
+                }
+
+                // Câmera
+                if (isShiftLockActive) {
+                    controls.enabled = false;
+                    const camX = playerContainer.position.x + cameraDistance * Math.sin(cameraYaw) * Math.cos(cameraPitch);
+                    const camY = playerContainer.position.y + 1.2 + cameraDistance * Math.sin(cameraPitch);
+                    const camZ = playerContainer.position.z + cameraDistance * Math.cos(cameraYaw) * Math.cos(cameraPitch);
+
+                    camera.position.set(camX, camY, camZ);
+                    camera.lookAt(playerContainer.position.x, playerContainer.position.y + 1.0, playerContainer.position.z);
+                } else {
+                    controls.enabled = true;
+                }
+
+                // Movimento
+                const camVector = new THREE.Vector3();
+                camera.getWorldDirection(camVector);
+                camVector.y = 0;
+                camVector.normalize();
+
+                const sideVector = new THREE.Vector3().crossVectors(camera.up, camVector).normalize();
+                const moveDir = new THREE.Vector3();
+
+                if (keys.KeyW || keys.ArrowUp) moveDir.add(camVector);
+                if (keys.KeyS || keys.ArrowDown) moveDir.sub(camVector);
+                if (keys.KeyD || keys.ArrowRight) moveDir.sub(sideVector);
+                if (keys.KeyA || keys.ArrowLeft) moveDir.add(sideVector);
+
+                const isMoving = moveDir.lengthSq() > 0;
+
+                // MODO VOO
+                if (isFlying) {
+                    const currentFlySpeed = flySpeed;
+                    if (isMoving) {
+                        moveDir.normalize();
+                        playerContainer.position.x += moveDir.x * currentFlySpeed * delta;
+                        playerContainer.position.z += moveDir.z * currentFlySpeed * delta;
+                    }
+
+                    // Subir / Descer no Voo
+                    if (keys.Space) playerContainer.position.y += currentFlySpeed * delta;
+                    if (keys.ControlLeft || keys.KeyC) playerContainer.position.y -= currentFlySpeed * delta;
+
+                    if (!isShiftLockActive && isMoving) {
+                        const targetAngle = Math.atan2(moveDir.x, moveDir.z) + Math.PI;
+                        playerContainer.rotation.y = targetAngle;
+                    } else if (isShiftLockActive) {
+                        playerContainer.rotation.y = cameraYaw + Math.PI;
+                    }
+                } 
+                // MODO NORMAL (FÍSICA DE GRAVIDADE)
+                else {
+                    if (isShiftLockActive) {
+                        playerContainer.rotation.y = cameraYaw + Math.PI;
+                        if (isMoving) {
+                            moveDir.normalize();
+                            playerContainer.position.x += moveDir.x * moveSpeed * delta;
+                            playerContainer.position.z += moveDir.z * moveSpeed * delta;
+                        }
+                    } else if (isMoving) {
+                        moveDir.normalize();
+                        playerContainer.position.x += moveDir.x * moveSpeed * delta;
+                        playerContainer.position.z += moveDir.z * moveSpeed * delta;
+
+                        const targetAngle = Math.atan2(moveDir.x, moveDir.z) + Math.PI;
+                        playerContainer.rotation.y = targetAngle;
+                    }
+
+                    if (keys.Space && isGrounded) {
+                        velocity.y = jumpSpeed;
+                        isGrounded = false;
+                    }
+
+                    velocity.y += gravity * delta;
+                    playerContainer.position.y += velocity.y * delta;
+
+                    // Colisão com Plataformas
+                    isGrounded = false;
+                    const playerX = playerContainer.position.x;
+                    const playerY = playerContainer.position.y;
+                    const playerZ = playerContainer.position.z;
+
+                    for (let p of platforms) {
+                        if (!p.mesh.visible || p.stage !== currentStage) continue;
+
+                        p.box.setFromObject(p.mesh);
+                        const b = p.box;
+
+                        if (playerX >= b.min.x - 0.4 && playerX <= b.max.x + 0.4 &&
+                            playerZ >= b.min.z - 0.4 && playerZ <= b.max.z + 0.4) {
+                            
+                            if (playerY <= p.topY && playerY >= p.topY - 1.2 && velocity.y <= 0) {
+                                playerContainer.position.y = p.topY;
+                                velocity.y = 0;
+                                isGrounded = true;
+
+                                let mp = movingPlatforms.find(m => m.p === p);
+                                if (mp) playerContainer.position.add(mp.deltaMove);
+
+                                let dp = disappearingPlatforms.find(d => d.p === p);
+                                if (dp && !dp.stepped) dp.stepped = true;
+
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Checagem de Vitória (Funciona mesmo voando)
+                for (let p of platforms) {
+                    if (!p.mesh.visible || p.stage !== currentStage || !p.isGoal) continue;
+                    p.box.setFromObject(p.mesh);
+                    const b = p.box;
+                    const pX = playerContainer.position.x;
+                    const pY = playerContainer.position.y;
+                    const pZ = playerContainer.position.z;
+
+                    if (pX >= b.min.x && pX <= b.max.x && pZ >= b.min.z && pZ <= b.max.z && Math.abs(pY - p.topY) < 2.0) {
+                        const nextStage = currentStage + 1;
+                        if (!unlockedStages.includes(nextStage) && nextStage <= 4) {
+                            unlockedStages.push(nextStage);
+                        }
+
+                        if (currentStage === 4) {
+                            showMessage("🎉 PARABÉNS! ZERASTE O JOGO!");
+                        } else {
+                            showMessage(`${currentStage}º ESTÁGIO CONCLUÍDO!\n${nextStage}º Estágio Desbloqueado!`);
+                        }
+
+                        setTimeout(() => { openMainMenu(); }, 2200);
+                        break;
+                    }
+                }
+
+                // Queda no Vazio
+                if (playerContainer.position.y < -20) {
+                    tpToCurrentStage();
+                }
+
+                // Animações
+                if (mixer) {
+                    if (isFlying) {
+                        if (isMoving) {
+                            if (animations['Running']) setAnimation('Running');
+                            else if (animations['Walking']) setAnimation('Walking');
+                        } else {
+                            if (animations['Idle']) setAnimation('Idle');
+                        }
+                    } else if (!isGrounded) {
+                        if (animations['Jump']) setAnimation('Jump');
+                    } else if (isMoving) {
+                        if (animations['Running']) setAnimation('Running');
+                        else if (animations['Walking']) setAnimation('Walking');
+                    } else {
+                        if (animations['Idle']) setAnimation('Idle');
+                    }
+                    mixer.update(delta);
+                }
+
+                if (!isShiftLockActive) {
+                    controls.target.copy(playerContainer.position).add(new THREE.Vector3(0, 1.0, 0));
+                    controls.update();
+                }
+
+                renderer.render(scene, camera);
+            }
+        }
+
+        animate();
+    </script>
+</body>
+</html>
