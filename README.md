@@ -51,4 +51,4 @@ Digite a palavra secreta `batmangg` enquanto estiver no **Menu Principal** para 
 
 1. Descarrega os ficheiros do projeto ou clona este repositório:
    ```bash
-   git clone [https://github.com/SEU-USUARIO/Parkour-3D.git](https://github.com/SEU-USUARIO/Parkour-3D.git)
+   git clone https://github.com/gustavobnascimento-wq/Parkour-3D.git
